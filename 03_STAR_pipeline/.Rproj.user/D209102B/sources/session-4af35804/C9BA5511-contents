@@ -1,0 +1,78 @@
+---
+title: "QQ plot enformer and borzoi correlations"
+author: "Sofia Salazar"
+date: "2023-10-23"
+description: "QQ plot of correlations between enformer & GT versus borzoi & GT"
+categories: [analysis]
+format:
+  html:
+    code-fold: false
+    code-summary: "Show the code"
+    code-tools: true
+    code-overflow: wrap
+editor_options: 
+  chunk_output_type: console
+---
+
+## Setup
+
+```{r}
+library(ggplot2)
+library(gridExtra)
+DATA <- "/Users/sofiasalazar/Desktop/LAB/IM-lab/blog-sofia/posts/2023-10-23-qqplots/"
+```
+
+## Data
+
+```{r}
+correlations_136 <- read.csv(paste0(DATA, "correlations_136genes.csv"))
+```
+
+## Make qq plots
+
+
+```{r}
+plot_df <- correlations_136[,c(1,2)]
+plot_df$abs_Borzoi <- abs(correlations_136$Borzoi)
+plot_df$abs_Enformer <- abs(correlations_136$Enformer)
+```
+
+Base R figures
+
+```{r}
+qqplot(plot_df$Borzoi, plot_df$Enformer, main="QQ Plot of Correlation Vectors", xlab="Vector 1 Quantiles", ylab="Vector 2 Quantiles")
+```
+
+```{r}
+qqplot(plot_df$abs_Borzoi, plot_df$abs_Enformer, main="QQ Plot of abs Correlation Vectors", xlab="Vector 1 Quantiles", ylab="Vector 2 Quantiles")
+```
+
+ggplot2 figures
+
+```{r}
+p1 <- ggplot(data = plot_df, mapping = aes(x = sort(Borzoi), y = sort(Enformer))) + 
+  geom_point(color = 'darkorange') +
+  geom_abline(aes(slope = 1, intercept = 0), color = 'black', linetype = "dashed")+
+  labs(x = "Borzoi", y = "Enformer") +
+  ggtitle("QQ Plot of Correlations to GT") + 
+  theme_minimal()
+p2 <- ggplot(data = plot_df, mapping = aes(x = sort(abs_Borzoi), y = sort(abs_Enformer))) + 
+  geom_point(color = 'darkorange') +
+  geom_abline(aes(slope = 1, intercept = 0), color = 'black', linetype = "dashed")+
+  labs(x = "Borzoi", y = "Enformer") +
+  ggtitle("QQ Plot of abs Correlations to GT") + 
+  theme_minimal()
+```
+
+
+```{r}
+qq_plot <- grid.arrange(ggplotGrob(p1), ggplotGrob(p2), ncol = 2)
+```
+
+
+Save plot
+
+```{r}
+ggsave(filename = paste0(DATA, 'qqplots.png'), qq_plot, dpi = 300, width = 2000, height = 1000, units = 'px')
+```
+

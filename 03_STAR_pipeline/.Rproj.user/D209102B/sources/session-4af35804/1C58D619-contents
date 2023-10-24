@@ -1,0 +1,340 @@
+---
+title: "Análisis de RNA-seq con STAR"
+subtitle: "VieRnes de Bioinformatica"
+author: "Sofía Salazar"
+institute: "VieRnes de Bioinformatica"
+date: "2023/11/05"
+output:
+  xaringan::moon_reader:
+    css: 
+      - xaringan-themer.css
+      - css/mi-tema.css
+      - default
+      - rladies
+      - rladies-fonts 
+    lib_dir: libs
+    seal: false
+    self_contained: true
+    nature:
+      highlightStyle: googlecode
+      highlightLines: true
+      countIncrementalSlides: false
+      ratio: 16:9
+      beforeInit: "macros.js"
+      slideNumberFormat: |
+        <div class="progress-bar-container">
+          <div class="progress-bar" style="width: calc(%current% / %total% * 100%);">
+          </div>
+        </div>
+
+---
+```{r setup, include = FALSE}
+# Setup chunk
+# Paquetes a usar
+#options(htmltools.dir.version = FALSE) cambia la forma de incluir código, los colores
+
+library(knitr)
+library(tidyverse)
+library(xaringanExtra)
+library(icons)
+library(fontawesome)
+library(emo)
+
+# set default options
+opts_chunk$set(collapse = TRUE,
+               dpi = 300,
+               warning = FALSE,
+               error = FALSE,
+               comment = "#")
+
+top_icon = function(x) {
+  icons::icon_style(
+    icons::fontawesome(x),
+    position = "fixed", top = 10, right = 10
+  )
+}
+
+knit_engines$set("yaml", "markdown")
+
+# Con la tecla "O" permite ver todas las diapositivas
+xaringanExtra::use_tile_view()
+# Agrega el boton de copiar los códigos de los chunks
+xaringanExtra::use_clipboard()
+
+# Crea paneles impresionantes 
+xaringanExtra::use_panelset()
+
+# Para compartir e incrustar en otro sitio web
+xaringanExtra::use_share_again()
+xaringanExtra::style_share_again(
+  share_buttons = c("twitter", "linkedin")
+)
+
+# Funcionalidades de los chunks, pone un triangulito junto a la línea que se señala
+xaringanExtra::use_extra_styles(
+  hover_code_line = TRUE,         #<<
+  mute_unhighlighted_code = TRUE  #<<
+)
+
+# Agregar web cam
+
+xaringanExtra::use_webcam()
+```
+
+```{r xaringan-editable, echo=FALSE}
+# Para tener opciones para hacer editable algun chunk
+xaringanExtra::use_editable(expires = 1)
+# Para hacer que aparezca el lápiz y goma
+xaringanExtra::use_scribble()
+```
+
+```{r xaringan-themer, include=FALSE, warning=FALSE}
+# Establecer colores para el tema
+library(xaringanthemer)
+#style_mono_light(base_color = "#562457")
+```
+
+class: title-slide, middle, center
+background-image: url(figures/liigh_unam_logo.png) 
+background-position: 10% 50%
+background-size: 15%
+
+
+.center-column[
+# `r rmarkdown::metadata$title`
+### `r rmarkdown::metadata$subtitle`
+
+####`r rmarkdown::metadata$author` 
+#### `r rmarkdown::metadata$date`
+]
+
+---
+
+# Contenido
+
+### 1. Descarga de datos públicos de RNA-seq con `wget`
+
+### 2. Análisis de control de calidad de lecturas
+
+### 3. Trimming
+
+### 4. Alineamiento con STAR
+
+### 5. Cargar datos a R
+
+---
+# ¿Qué datos vamos a utilizar?
+
+### Los archivos `fastq`. 
+
+Este es un formato de archivo que va contener:
+
+- La sequencia de, en este caso, RNA que se sequenció
+
+- La calidad (Q) del "llamado" de cada una de las bases nitrogenadas **(Phred Score)**, codificada en ASCII.
+
+$$Q = -10log_{10} P $$ donde $P$ es la probabilidad de que la base sea incorrecta
+
+.center[
+<img src = "figures/phred.png", height = "250">]
+---
+# ¿Qué datos vamos a utilizar?
+
+### Los archivos `fastq`. 
+
+Los archivos `fastq` se van a ver algo parecido así:
+
+```
+@SEQ_ID
+GATTTGGGGTTCAAAGCAGTATCGATCAAATAGTAAATCCATTTGTTCAACTCACAGTTT
++
+!''*((((***+))%%%++)(%%%%).1***-+*''))**55CCF>>>>>>CCCCCCC65
+``` 
+
+---
+# ¿Cuál va a ser el pipeline que seguiremos?
+
+FOTO
+
+---
+
+# 1. Descarga de datos públicos de RNA-seq
+
+### ¿Cómo podemos conseguir datos de RNA-seq?
+
+La forma más simple es ir a repositorios de datos públicos, como [GEO (Gene Expression Omnibus)](https://www.ncbi.nlm.nih.gov/geo/), en donde encontraremos los archivos de datos **crudos** y a veces también las matrices de cuentas ya procesadas** ó a [Recount3](https://rna.recount.bio/) (aquí podemos encontrar datos ya procesados).
+
+**Para esta clase, usaremos las muestras del estudio GSE155516**
+
+### Descarga de los datos con `wget`
+
+Una vez que seleccionamos el estudio que vamos a usar, entramos a la página de [ebi](https://www.ebi.ac.uk/). En el buscador, tecleamos el ID del estudio.
+
+Seleccionamos el estudio donde dice **Nucleotide sequences**, y en la tabla inferior, en la columna **Generated FASTQ files:FTP**, seleccionamos las muestras que queremos y damos click izquierdo en donde dice **Get download script**. 
+
+
+---
+### Descarga de los datos con `wget`
+
+Esto descargará un script the bash `.sh` que podremos utilizar para descargar las muestras.
+
+Para correr este script y descargar las muestras, debemos ir a la carpeta donde las queremos guardar y ahí guardamos el script. Supongamos que yo renombré mi script a `download.sh`. Y lo tengo en una carpeta llamada `data`.
+
+
+```{bash, eval = F}
+cd /mnt/Citosina/amedina/ssalazar/claseSTAR/data/
+chmod +x downloads.sh
+./downloads.sh
+```
+
+Para correr el script, primero me doy permisos de ejecución con `chmod +x` y después ejecuto el script con `./`
+
+---
+
+# 1. Análisis de control de calidad de lecturas
+
+Para hacer análisis de control de calidad **QC**. Utilizaremos los programas `fastqc` y `multiqc`
+
+### 1. Fastqc 
+
+Este programa va a realizar un análisis de control de calidad en cada una de los archivos `.fastq.gz` y nos va a dar un reporte en forma de un archivo tipo `.html`.
+
+### 2. Multiqc
+
+Este programa toma todos los archivos `.html` que arrojó `fastqc` y nos dará un reporte combinado de todas las muestras.
+
+---
+
+### Correr `fastqc`
+
+En mi caso, debo de cargar el módulo de `fastqc` primero para poder utilizar los comandos. Si estás trabajando en tu computadora local y ya está descargado `fastqc`, tal vez esto no sea necesario.
+
+También creamos una carpeta para los outputs de `fastqc`
+
+```{bash, eval = F}
+module load fastqc/0.11.3
+cd /mnt/Citosina/amedina/ssalazar/claseSTAR/
+mkdir quality1
+```
+
+Después, usaremos un `for loop` para hacer `fastqc` a todos los archivos que tengan terminación `.fastq.gz`
+
+```{bash, eval = F}
+for file in data/*.fastq.gz; do fastqc $file -o quality1; done
+```
+
+El comando para correr `fastqc` en un solo archivo es:
+
+```{bash, eval = F}
+fastqc nombre.fastq.gz -o /directorio/de/salida
+```
+
+---
+### Correr `multiqc`
+
+Multiqc reconoce los outputs de `fastqc` por lo que el comando para utilizarlo es muy sencillo
+
+```{bash, eval = F}
+multiqc quality
+```
+
+#### **NOTA: siempre es mejor utlizar direcciones absolutas a relativas, para evitar que tus outputs se guarden en un directorio no deseado: **
+
+```{bash, eval = F}
+multiqc /mnt/Citosina/amedina/ssalazar/claseSTAR/quality
+```
+
+---
+### Analicemos el output de `multiqc`
+
+---
+
+# 3. Trimming
+
+Para hacer trimming de las lecturas que no tuvieron una buena calidad, utilizaremos la herramienta `trimmomatic`. Este programa tiene muchas opciones que nos permiten hacer trimmin de formas distintas, aquí muestro el comando que utilizaremos para nuestras necesidades. Pero asegúrate de leer el [manual](http://www.usadellab.org/cms/uploads/supplementary/Trimmomatic/TrimmomaticManual_V0.32.pdf) para tus análisis personales.
+
+
+Para paired end necesitamos:
+
+- Las dos lecturas paired end por muestra `SRRxxxxx_1.fastq.gz` y `SRRxxxx_2.fastq.gz`
+
+- Un archivo con los adaptadores que vamos a cortar `TruSeq3-PE-2.fa`
+
+Descarga los adaptadores de [aquí](https://github.com/timflutre/trimmomatic/blob/master/adapters/TruSeq3-PE-2.fa)
+
+Trimmomatic nos dará 4 outputs: Las secuencias que quedaron sin par que eran originalmente del archivo "1": `_1_unpaired.fastq.gz`, las secuencias sin par que eran del archivo "2": `_2_unpaired.fastq.gz` y las secuencias que aun están pareadas: `_1_trimmed.fastq.gz` y `_2_trimmed.fastq.gz`
+---
+
+## Correr Trimmomatic
+
+Creamos una carpeta para los resultados
+
+```{bash, eval = F}
+mkdir /mnt/Citosina/amedina/ssalazar/claseSTAR/TRIM_results
+```
+
+Usamos un `for loop` para hacer trimmomatic a cada par de lecturas `SRRxxxxx_1.fastq.gz` y `SRRxxxx_2.fastq.gz`
+
+```{bash, eval = F}
+cd /mnt/Citosina/amedina/ssalazar/claseSTAR/data
+for i in *_1.fastq.gz;
+do echo
+trimmomatic PE -threads 8 -phred33 $i "${i%_1.fastq.gz}_2.fastq.gz" \
+../TRIM_results/"${i%_1.fastq.gz}_1_trimmed.fq.gz" ../TRIM_results/"${i%_1.fastq.gz}_1_unpaired.fq.gz" \ 
+../TRIM_results/"${i%_1.fastq.gz}_2_trimmed.fq.gz" ../TRIM_results/"${i%_1.fastq.gz}_2_unpaired.fq.gz" \
+ILLUMINACLIP:/mnt/Citosina/amedina/ssalazar/claseSTAR/TruSeq3-PE-2.fa:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:20 MINLEN:66
+done
+```
+
+---
+
+## QC del Trimming
+
+### ¿Qué tan bueno fue nuestro control de calidad?
+
+Corramos `fastqc` y `multiqc` de nuevo
+
+```{bash, eval = F}
+mkdir /mnt/Citosina/amedina/ssalazar/claseSTAR/quality2
+for file in /mnt/Citosina/amedina/ssalazar/claseSTAR/TRIM_results/*.fq.gz; do fastqc $file -o /mnt/Citosina/amedina/ssalazar/claseSTAR/quality2; done
+```
+
+```{bash, eval = F}
+multiqc /mnt/Citosina/amedina/ssalazar/claseSTAR/quality2
+```
+
+---
+
+### Analicemos el output de `multiqc`
+
+---
+
+# 4. Alineamiento con STAR
+
+#### Seguiremos 2 sencillos pasos
+
+1. Indexar el genoma de referencia creando un índice de STAR
+
+2. Alinear y contar con STAR
+
+---
+
+## 1. Crear un índice de STAR
+
+Carguemos el módulo de STAR
+
+```{bash, eval = F}
+module load star/2.7.9a
+```
+
+El script para crear el indice es el siguiente:
+
+```{bash, eval = F}
+STAR --runThreadN 30 \
+--runMode genomeGenerate \
+--genomeDir /mnt/Citosina/amedina/ssalazar/claseSTAR/STAR_index \
+--genomeFastaFiles /mnt/Archives/genome/mouse/mm10/UCSC/chromosomes-1-file/mm10.fa \
+--sjdbGTFfile /mnt/Citosina/amedina/ssalazar/claseSTAR/annotation/mm10.knownGene.gtf.gz \
+--sjdbOverhang 99
+```
+

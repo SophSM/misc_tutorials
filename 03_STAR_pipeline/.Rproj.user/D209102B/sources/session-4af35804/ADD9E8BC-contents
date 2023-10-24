@@ -1,0 +1,45 @@
+---
+title: "Getting TSS annotations"
+author: "Sofia Salazar"
+date: "2023-09-25"
+description: "Query the hg38 cannonical TSS annotations for protein-coding genes using biomaRt"
+categories: [annotation]
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    code-tools: true
+    code-overflow: wrap
+editor_options: 
+  chunk_output_type: console
+---
+
+I used Sabrina's code for this query
+
+## Installing biomaRt
+```{r, eval=FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("biomaRt")
+```
+```{r, eval=FALSE}
+library(biomaRt)
+library(tidyverse)
+```
+
+## Getting human genes and their TSS in hg38
+
+```{r, eval = F}
+# connect to BioMart database for human genes
+ensembl <- useEnsembl(biomart = "genes", dataset = "hsapiens_gene_ensembl")
+
+# query canonical TSS for protein-coding genes on chr 1-22, X, and Y
+protein_coding_TSS <- biomaRt::getBM(attributes = c("ensembl_gene_id","external_gene_name", "chromosome_name","transcript_start","transcript_end","transcript_biotype","transcription_start_site", "transcript_is_canonical", "strand"), filters = c("transcript_biotype","chromosome_name", "transcript_is_canonical"),values = list("protein_coding",c(1:22, 'X', 'Y'), TRUE), mart = ensembl)
+
+# extract columns of interest
+protein_coding_TSS = protein_coding_TSS[, c("ensembl_gene_id", "external_gene_name", "chromosome_name", "transcription_start_site", "transcript_start", "transcript_end")]
+
+# write to file
+write.table(protein_coding_TSS, file="protein_coding_TSS.tsv", sep="\t", row.names=FALSE, col.names=TRUE, quote=FALSE)
+```
+
