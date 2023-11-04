@@ -1,1 +1,0 @@
-corrs_df <- read.csv('/Users/sofiasalazar/Desktop/LAB/IM-lab/corrs_df.csv')

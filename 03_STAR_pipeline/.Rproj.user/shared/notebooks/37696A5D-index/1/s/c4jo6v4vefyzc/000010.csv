@@ -1,2 +1,0 @@
-"0","corrs_df <- read.csv('/Users/sofiasalazar/Desktop/LAB/IM-lab/corrs_df.csv')"
-"0","genes_ordered <- corrs_df[order(corrs_df$ge_abs, decreasing = T), 3]"

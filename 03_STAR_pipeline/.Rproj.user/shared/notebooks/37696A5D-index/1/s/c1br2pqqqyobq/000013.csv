@@ -1,6 +1,0 @@
-"0","past <- 0"
-"0","for (i in 1:7){"
-"0","  list <- worst[(past + 1): (i* 20)]"
-"0","  write.csv(list, file = paste0('/Users/sofiasalazar/Desktop/LAB/IM-lab/worst_list', i, '.csv'))"
-"0","  past <- (i* 20)"
-"0","}"
